@@ -1,108 +1,145 @@
-/*
- * LCD RS pin to digital pin 12
- * LCD Enable pin to digital pin 11
- * LCD D4 pin to digital pin 5
- * LCD D5 pin to digital pin 4
- * LCD D6 pin to digital pin 3
- * LCD D7 pin to digital pin 2
- * LCD R/W pin to ground
- * LCD VSS pin to ground
- * LCD VCC pin to 5V
- * 10K resistor:
- * ends to +5V and ground
- * wiper to LCD VO pin (pin 3)
-*/
-#define S0 6
-#define S1 7
-#define S2 8
-#define S3 9
-#define OUT 10
-// include the library code:
-#include <LiquidCrystal.h>
-int redFrequency = 0;
-int greenFrequency = 0;
-int blueFrequency = 0;
-// initialize the library by associating any needed LCD interface pin
-// with the arduino pin number it is connected to
-const int rs = 12, en = 11, d4 = 5, d5 = 4, d6 = 3, d7 = 2;
-LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
+#include <Wire.h>
+#include <hd44780.h>
+#include <hd44780ioClass/hd44780_I2Cexp.h>
+#include <Keypad.h>
+#define EN   11  
+#define EN_MOT 2
+#define LS1  19
+#define LS2  18 
+#define D1   47
+#define D2   46
+//Direction pin
+#define X_DIR     48 
+#define Y_DIR     50
+#define Z_DIR     52
 
-void setup() {
-  // set up the LCD's number of columns and rows:
-  //
-  pinMode(S0,OUTPUT);
-  pinMode(S1,OUTPUT);
-  pinMode(S2,OUTPUT);
-  pinMode(S3,OUTPUT);
-  //
-  pinMode(OUT,INPUT);
-  //
+//Step pin
+#define X_STP     49
+#define Y_STP     51 
+#define Z_STP     53 
+
+//Color Sensor
+#define S0 46
+#define S1 47
+#define S2 44
+#define S3 45
+#define sensorOut 43
+
+
+int frequency[] = {0,0,0};
+int rgb[] = {0,0,0};
+
+
+bool Y_DIR_c = HIGH;
+bool runSw2Once = false;
+bool runSw1Once = false;
+String len = "";
+int ilen;
+String width = "";
+int iwidth;
+bool lenReady=false;//check if length obtained
+int len_check =0;//check if all numbers i.e 3 of the length have been captured.
+bool widReady =false; //check if width obtained
+bool start = true; //prevent loop from starting from length once obtained
+int leadScrewPitch = 2; //mm
+
+//KEYPAD DETAILS
+const byte ROWS = 4; //four rows
+const byte COLS = 4; //four columns
+//define the symbols on the buttons of the keypads
+char hexaKeys[ROWS][COLS] = {
+  {'1','2','3','A'},
+  {'4','5','6','B'},
+  {'7','8','9','C'},
+  {'*','0','#','F'}
+};
+byte colPins[COLS] = {5,4,3,2}; //connect to the row pinouts of the keypad
+byte rowPins[ROWS] = {9,8,7,6.}; //connect to the column pinouts of the keypad
+
+//LCD DETAILS
+const int LCD_COLS = 20;
+const int LCD_ROWS = 4;
+int status;
+
+//Instantiating of classes in code
+Keypad customKeypad = Keypad( makeKeymap(hexaKeys), rowPins, colPins, ROWS, COLS); 
+hd44780_I2Cexp lcd;
+
+void setup(){
+  pinMode(S0, OUTPUT);
+  pinMode(S1, OUTPUT);
+  pinMode(S2, OUTPUT);
+  pinMode(S3, OUTPUT);
+  pinMode(sensorOut, INPUT);
+  
+  // Setting frequency-scaling to 20%
   digitalWrite(S0,HIGH);
-  digitalWrite(S1,HIGH);
-  //
+  digitalWrite(S1,LOW);
+   status = lcd.begin(LCD_COLS,LCD_ROWS);
+  if(status){
+    status = -status;
+    hd44780::fatalError(status);
+  }
   Serial.begin(9600);
-  
-  lcd.begin(20,4);
- 
-  // Print a message to the LCD.
-  
-  lcd.setCursor(0,1);
-  lcd.print("EN292-0613/2014");
-  lcd.setCursor(0,2);
-  lcd.print("EN292-0599/2014");
-  lcd.setCursor(0,3);
-  lcd.print("BEGINNING..");
-  delay(2000);
+  lcd.print("Welcome!");
+  lcd.setCursor(0,0);
   lcd.clear();
-  lcd.print("COLOR DETAILS");
+  customKeypad.setHoldTime(500);
+  Serial.begin(9600);
+  pinMode(LS1,INPUT_PULLUP);
+  pinMode(LS2,INPUT_PULLUP);
+  pinMode(EN_MOT,OUTPUT);
+  pinMode(X_DIR, OUTPUT); pinMode(X_STP, OUTPUT);
+
+  pinMode(Y_DIR, OUTPUT); pinMode(Y_STP, OUTPUT);
+
+  pinMode(Z_DIR, OUTPUT); pinMode(Z_STP, OUTPUT);
+
+  pinMode(EN, OUTPUT);
+
+  digitalWrite(EN, LOW);
+//  attachInterrupt(digitalPinToInterrupt(LS1),switchOne,LOW);
+//  attachInterrupt(digitalPinToInterrupt(LS2),switchTwo,LOW);
+goHome();
 }
 
-void loop() {
-  // set the cursor to column 0, line 1
-  // (note: line 1 is the second row, since counting begins with 0):
-//  lcd.setCursor(0, 1);
-//  // print the number of seconds since reset:
-//  lcd.print(millis() / 1000);
-digitalWrite(S2,LOW);
-  digitalWrite(S3,LOW);
+void loop(){
   
-  // Reading the output frequency
-  redFrequency = pulseIn(OUT, LOW);
-  
-   // Printing the RED (R) value
-  lcd.setCursor(0,1);
-  lcd.print("R = ");
-  lcd.setCursor(2,1);
-  lcd.print(redFrequency);
-  delay(100);
- 
-  
-  // Setting GREEN (G) filtered photodiodes to be read
-  digitalWrite(S2,HIGH);
-  digitalWrite(S3,HIGH);
-  
-  // Reading the output frequency
-  greenFrequency = pulseIn(OUT, LOW);
-  
-  // Printing the GREEN (G) value  
-  lcd.setCursor(0,2);
-  lcd.print("G = ");
-  lcd.setCursor(2,2);
-  lcd.print(greenFrequency);
-  delay(100);
- 
-  // Setting BLUE (B) filtered photodiodes to be read
-  digitalWrite(S2,LOW);
-  digitalWrite(S3,HIGH);
-  
-  // Reading the output frequency
-  blueFrequency = pulseIn(OUT, LOW);
-  
-  // Printing the BLUE (B) value 
-   lcd.setCursor(0,3);
-  lcd.print("B = ");
-  lcd.setCursor(2,3);
-  lcd.print(blueFrequency);
-  delay(100);
- 
+getMeasure();
+}
+void switchTwo(){
+   digitalWrite(X_DIR,LOW); // Enables the motor to move in a particular direction
+  // Makes 200 pulses for making one full cycle rotation
+   int pulses = (ilen/leadScrewPitch)*400;
+   if(!runSw1Once){
+  for(int x = 0; x < pulses; x++) {
+    digitalWrite(X_STP,HIGH); 
+    delayMicroseconds(500); 
+    digitalWrite(X_STP,LOW); 
+    delayMicroseconds(500); 
+    if(x%400==0){
+      Y_DIR_c = !Y_DIR_c;
+      runSw2Once = false;
+      switchOne(Y_DIR_c);
+      }
+  }
+  runSw1Once=true;
+   }
+   goHome();
+}
+void switchOne(bool DIR){
+    digitalWrite(Y_DIR,DIR); // Enables the motor to move in a particular direction
+  // Makes 200 pulses for making one full cycle rotation
+  int pulses = (iwidth/leadScrewPitch)*40; //Multiplied by 40 as a correction to motor taking pitch as 10mm;
+  Serial.println(iwidth);
+  if(!runSw2Once){
+  for(int x = 0; x < pulses; x++) {
+    digitalWrite(Y_STP,HIGH); 
+    delayMicroseconds(500); 
+    digitalWrite(Y_STP,LOW); 
+    delayMicroseconds(500);
+  }
+  runSw2Once=true;
+  }
+  delay(1000);
 }
