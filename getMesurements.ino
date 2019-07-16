@@ -51,5 +51,6 @@ void getMeasure(){
   lcd.print(ilen);
   lcd.setCursor(0,3);
   lcd.print(iwidth);
+  switchTwo();
   }
 }
